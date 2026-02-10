@@ -1,71 +1,64 @@
 <!DOCTYPE html>
-<html>
+<html lang="es">
 <head>
-<meta charset="utf-8">
-<title>Teachable Machine Camera</title>
+  <meta charset="UTF-8">
+  <title>Traductor LSE</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<style>
-  body {
-    margin: 0;
-    overflow: hidden;
-    background: black;
-  }
-  video, canvas {
-    display: none; /* no mostramos nada */
-  }
-</style>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      background: transparent;
+      overflow: hidden;
+    }
+    video, canvas {
+      display: none;
+    }
+  </style>
+
+  <!-- Versiones estables para Android WebView -->
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.21.0/dist/tf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@0.8/dist/teachablemachine-image.min.js"></script>
 </head>
 
 <body>
 
-<!-- MENSAJE DE PERMISO -->
-<div id="mensaje-permiso" style="
-  position:fixed; top:0; left:0; width:100%; height:100%;
-  background-color:rgba(0,0,0,0.7); color:white;
-  display:flex; flex-direction:column;
-  justify-content:center; align-items:center;
-  font-size:18px; z-index:1000;">
-  <div style="padding:20px; text-align:center;">
-    <p>Para usar el traductor de lengua de signos, necesitamos acceder a la cámara.</p>
-    <button id="boton-permiso" style="padding:10px 20px; font-size:16px;">
-      Aceptar
-    </button>
-  </div>
-</div>
-
-<video id="webcam" autoplay playsinline></video>
-<canvas id="canvas"></canvas>
-
-<!-- LIBRERÍAS -->
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.10.0/dist/tf.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@0.8/dist/teachablemachine-image.min.js"></script>
-
 <script>
-/* ========= CONFIG ========= */
-const URL = "https://storage.googleapis.com/tm-model/PBMe15z0B/"; // <-- TU MODELO
-let model, webcam, maxPredictions;
+/* ================= CONFIG ================= */
+const MODEL_URL = "https://storage.googleapis.com/tm-model/PBMe15z0B/";
+const CONFIDENCE_THRESHOLD = 0.6;
+
+/* ================= VARIABLES ================= */
+let model = null;
+let webcam = null;
 let running = false;
+let modelLoaded = false;
 
-/* ========= BOTÓN PERMISO ========= */
-document.getElementById("boton-permiso").addEventListener("click", async () => {
+/* =====================================================
+   FUNCIÓN QUE LLAMA MIT APP INVENTOR
+   (desde Button.Click con EvaluateJavaScript)
+===================================================== */
+async function startCamera() {
+  if (running) return;
+
   try {
+    // 1️⃣ PEDIR PERMISO DE CÁMARA (GESTO DE USUARIO)
     await navigator.mediaDevices.getUserMedia({ video: true });
-    document.getElementById("mensaje-permiso").style.display = "none";
-    await startCameraAndModel();
-  } catch (err) {
-    alert("No se puede usar la app sin permitir la cámara.");
-  }
-});
 
-/* ========= INICIAR CÁMARA + MODELO ========= */
-async function startCameraAndModel() {
-  try {
-    const modelURL = URL + "model.json";
-    const metadataURL = URL + "metadata.json";
+    // 2️⃣ CARGAR MODELO (solo una vez)
+    if (!modelLoaded) {
+      await tf.ready();
+      model = await tmImage.load(
+        MODEL_URL + "model.json",
+        MODEL_URL + "metadata.json"
+      );
+      modelLoaded = true;
+    }
 
-    model = await tmImage.load(modelURL, metadataURL);
-    maxPredictions = model.getTotalClasses();
-
+    // 3️⃣ INICIAR WEBCAM
     webcam = new tmImage.Webcam(224, 224, true);
     await webcam.setup();
     await webcam.play();
@@ -73,21 +66,25 @@ async function startCameraAndModel() {
     running = true;
     window.requestAnimationFrame(loop);
 
-  } catch (e) {
-    window.AppInventor.setWebViewString("ERROR_CAMARA_O_MODELO");
+  } catch (err) {
+    console.error(err);
+    if (window.AppInventor) {
+      window.AppInventor.setWebViewString(
+        "ERROR: " + (err.message || "CAMARA_O_MODELO")
+      );
+    }
   }
 }
 
-/* ========= BUCLE DE CLASIFICACIÓN ========= */
+/* ================= BUCLE ================= */
 async function loop() {
   if (!running) return;
-
   webcam.update();
   await predict();
   window.requestAnimationFrame(loop);
 }
 
-/* ========= PREDICCIÓN ========= */
+/* ================= PREDICCIÓN ================= */
 async function predict() {
   const predictions = await model.predict(webcam.canvas);
 
@@ -98,12 +95,14 @@ async function predict() {
     }
   }
 
-  if (best.probability > 0.6) {
-    window.AppInventor.setWebViewString(best.className);
+  if (best.probability >= CONFIDENCE_THRESHOLD) {
+    if (window.AppInventor) {
+      window.AppInventor.setWebViewString(best.className);
+    }
   }
 }
 
-/* ========= PARAR (OPCIONAL) ========= */
+/* ================= OPCIONAL: PARAR ================= */
 function stopCamera() {
   running = false;
   if (webcam) webcam.stop();
