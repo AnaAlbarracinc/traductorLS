@@ -1,4 +1,3 @@
-<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
@@ -39,12 +38,16 @@ let modelLoaded = false;
 
 /* =====================================================
    FUNCIÓN QUE LLAMA MIT APP INVENTOR
+   (desde Button.Click con EvaluateJavaScript)
 ===================================================== */
 async function startCamera() {
   if (running) return;
 
   try {
-    // 1️⃣ Cargar modelo (solo una vez)
+    // 1️⃣ PEDIR PERMISO DE CÁMARA (GESTO DE USUARIO)
+    await navigator.mediaDevices.getUserMedia({ video: true });
+
+    // 2️⃣ CARGAR MODELO (solo una vez)
     if (!modelLoaded) {
       await tf.ready();
       model = await tmImage.load(
@@ -54,7 +57,7 @@ async function startCamera() {
       modelLoaded = true;
     }
 
-    // 2️⃣ Iniciar webcam (sin forzar nada)
+    // 3️⃣ INICIAR WEBCAM
     webcam = new tmImage.Webcam(224, 224, false);
     await webcam.setup();
     await webcam.play();
@@ -66,7 +69,7 @@ async function startCamera() {
     console.error(err);
     if (window.AppInventor) {
       window.AppInventor.setWebViewString(
-        "ERROR: " + (err.message || "CAMARA")
+        "ERROR: " + (err.message || "CAMARA_O_MODELO")
       );
     }
   }
@@ -92,11 +95,13 @@ async function predict() {
   }
 
   if (best.probability >= CONFIDENCE_THRESHOLD) {
-    window.AppInventor?.setWebViewString(best.className);
+    if (window.AppInventor) {
+      window.AppInventor.setWebViewString(best.className);
+    }
   }
 }
 
-/* ================= OPCIONAL ================= */
+/* ================= OPCIONAL: PARAR ================= */
 function stopCamera() {
   running = false;
   if (webcam) webcam.stop();
@@ -105,3 +110,4 @@ function stopCamera() {
 
 </body>
 </html>
+
