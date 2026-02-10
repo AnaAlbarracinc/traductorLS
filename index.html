@@ -47,8 +47,9 @@ async function startCamera() {
   try {
     // 🔥 FORZAR CÁMARA TRASERA
     await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: { exact: "environment" } }
-    });
+  video: { facingMode: { ideal: "environment" } }
+});
+
 
     if (!modelLoaded) {
       await tf.ready();
@@ -109,6 +110,7 @@ function stopCamera() {
 
 </body>
 </html>
+
 
 
 
