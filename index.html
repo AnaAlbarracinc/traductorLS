@@ -43,9 +43,7 @@ let modelLoaded = false;
 ===================================================== */
 async function startCamera() {
   if (running) return;
-
   try {
-    // 1️⃣ Cargar modelo (si no está cargado)
     if (!modelLoaded) {
       await tf.ready();
       model = await tmImage.load(
@@ -55,26 +53,22 @@ async function startCamera() {
       modelLoaded = true;
     }
 
-    // 2️⃣ Crear webcam
     webcam = new tmImage.Webcam(224, 224, false);
 
-    // 3️⃣ 🔥 PEDIR CÁMARA TRASERA AQUÍ (NO antes)
-    await webcam.setup({
-      facingMode: { ideal: "environment" }
-    });
+    // Intento “suave” trasera
+    try {
+      await webcam.setup({ facingMode: { ideal: "environment" } });
+    } catch (e) {
+      // Fallback frontal (SIEMPRE funciona)
+      await webcam.setup();
+    }
 
     await webcam.play();
-
     running = true;
-    window.requestAnimationFrame(loop);
+    requestAnimationFrame(loop);
 
   } catch (err) {
-    console.error(err);
-    if (window.AppInventor) {
-      window.AppInventor.setWebViewString(
-        "ERROR_CAMARA: " + (err.message || "FAILED_FETCH")
-      );
-    }
+    window.AppInventor?.setWebViewString("ERROR_CAMARA");
   }
 }
 
@@ -113,6 +107,7 @@ function stopCamera() {
 
 </body>
 </html>
+
 
 
 
