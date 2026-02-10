@@ -1,129 +1,113 @@
 <!DOCTYPE html>
-<html lang="es">
+<html>
 <head>
-  <meta charset="UTF-8">
-  <title>Reconocimiento de Signos</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta charset="utf-8">
+<title>Teachable Machine Camera</title>
 
-  <style>
-    html, body {
-      margin: 0;
-      padding: 0;
-      width: 100%;
-      height: 100%;
-      background-color: rgba(0,0,0,0.8);
-      color: white;
-      font-family: Arial, sans-serif;
-    }
-
-    #mensaje-permiso {
-      position: fixed;
-      top: 0; left: 0;
-      width: 100%; height: 100%;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      font-size: 18px;
-      z-index: 1000;
-      text-align: center;
-      padding: 20px;
-    }
-
-    button {
-      padding: 12px 24px;
-      font-size: 16px;
-      margin-top: 20px;
-    }
-
-    video, canvas {
-      display: none;
-    }
-  </style>
-
-  <!-- Versiones estables para WebView -->
-  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.21.0/dist/tf.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@0.8/dist/teachablemachine-image.min.js"></script>
+<style>
+  body {
+    margin: 0;
+    overflow: hidden;
+    background: black;
+  }
+  video, canvas {
+    display: none; /* no mostramos nada */
+  }
+</style>
 </head>
 
 <body>
 
-<div id="mensaje-permiso">
-  <p>Para usar el traductor de lengua de signos, necesitamos permiso para acceder a la cámara.</p>
-  <button id="boton-permiso">Aceptar</button>
+<!-- MENSAJE DE PERMISO -->
+<div id="mensaje-permiso" style="
+  position:fixed; top:0; left:0; width:100%; height:100%;
+  background-color:rgba(0,0,0,0.7); color:white;
+  display:flex; flex-direction:column;
+  justify-content:center; align-items:center;
+  font-size:18px; z-index:1000;">
+  <div style="padding:20px; text-align:center;">
+    <p>Para usar el traductor de lengua de signos, necesitamos acceder a la cámara.</p>
+    <button id="boton-permiso" style="padding:10px 20px; font-size:16px;">
+      Aceptar
+    </button>
+  </div>
 </div>
 
+<video id="webcam" autoplay playsinline></video>
+<canvas id="canvas"></canvas>
+
+<!-- LIBRERÍAS -->
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.10.0/dist/tf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@0.8/dist/teachablemachine-image.min.js"></script>
+
 <script>
-  const URL = "https://teachablemachine.withgoogle.com/models/PBMe15z0B/";
-  const CONFIDENCE_THRESHOLD = 0.7;
+/* ========= CONFIG ========= */
+const URL = "https://storage.googleapis.com/tm-model/PBMe15z0B/"; // <-- TU MODELO
+let model, webcam, maxPredictions;
+let running = false;
 
-  let model = null;
-  let webcam = null;
+/* ========= BOTÓN PERMISO ========= */
+document.getElementById("boton-permiso").addEventListener("click", async () => {
+  try {
+    await navigator.mediaDevices.getUserMedia({ video: true });
+    document.getElementById("mensaje-permiso").style.display = "none";
+    await startCameraAndModel();
+  } catch (err) {
+    alert("No se puede usar la app sin permitir la cámara.");
+  }
+});
 
-  // 1️⃣ PEDIR PERMISO DE CÁMARA PRIMERO (CLAVE)
-  document.getElementById("boton-permiso").addEventListener("click", async () => {
-    try {
-      await navigator.mediaDevices.getUserMedia({ video: true });
+/* ========= INICIAR CÁMARA + MODELO ========= */
+async function startCameraAndModel() {
+  try {
+    const modelURL = URL + "model.json";
+    const metadataURL = URL + "metadata.json";
 
-      // Ocultar mensaje
-      document.getElementById("mensaje-permiso").style.display = "none";
+    model = await tmImage.load(modelURL, metadataURL);
+    maxPredictions = model.getTotalClasses();
 
-      // Ahora que YA hay permiso, arrancamos todo
-      startRecognition();
+    webcam = new tmImage.Webcam(224, 224, true);
+    await webcam.setup();
+    await webcam.play();
 
-    } catch (err) {
-      alert("No podrás usar la app sin permitir la cámara.");
-      console.error(err);
-    }
-  });
+    running = true;
+    window.requestAnimationFrame(loop);
 
-  // 2️⃣ CARGAR MODELO DESPUÉS DEL PERMISO
-  async function startRecognition() {
-    try {
-      await tf.ready();
+  } catch (e) {
+    window.AppInventor.setWebViewString("ERROR_CAMARA_O_MODELO");
+  }
+}
 
-      model = await tmImage.load(
-        URL + "model.json",
-        URL + "metadata.json"
-      );
+/* ========= BUCLE DE CLASIFICACIÓN ========= */
+async function loop() {
+  if (!running) return;
 
-      webcam = new tmImage.Webcam(224, 224, true);
-      await webcam.setup();   // ya no bloquea
-      await webcam.play();
+  webcam.update();
+  await predict();
+  window.requestAnimationFrame(loop);
+}
 
-      requestAnimationFrame(loop);
+/* ========= PREDICCIÓN ========= */
+async function predict() {
+  const predictions = await model.predict(webcam.canvas);
 
-    } catch (err) {
-      console.error(err);
-      if (window.AppInventor) {
-        window.AppInventor.setWebViewString("ERROR_CAMARA_O_MODELO");
-      }
+  let best = predictions[0];
+  for (let i = 1; i < predictions.length; i++) {
+    if (predictions[i].probability > best.probability) {
+      best = predictions[i];
     }
   }
 
-  // 3️⃣ BUCLE DE PREDICCIÓN
-  async function loop() {
-    webcam.update();
-    await predict();
-    requestAnimationFrame(loop);
+  if (best.probability > 0.6) {
+    window.AppInventor.setWebViewString(best.className);
   }
+}
 
-  async function predict() {
-    const predictions = await model.predict(webcam.canvas);
-
-    let best = predictions[0];
-    for (let i = 1; i < predictions.length; i++) {
-      if (predictions[i].probability > best.probability) {
-        best = predictions[i];
-      }
-    }
-
-    if (best.probability > CONFIDENCE_THRESHOLD) {
-      if (window.AppInventor) {
-        window.AppInventor.setWebViewString(best.className);
-      }
-    }
-  }
+/* ========= PARAR (OPCIONAL) ========= */
+function stopCamera() {
+  running = false;
+  if (webcam) webcam.stop();
+}
 </script>
 
 </body>
