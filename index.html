@@ -59,7 +59,7 @@ async function startCamera() {
     }
 
     // 3️⃣ INICIAR WEBCAM
-    webcam = new tmImage.Webcam(224, 224, true);
+    webcam = new tmImage.Webcam(224, 224, false);
     await webcam.setup();
     await webcam.play();
 
@@ -111,5 +111,6 @@ function stopCamera() {
 
 </body>
 </html>
+
 
 
