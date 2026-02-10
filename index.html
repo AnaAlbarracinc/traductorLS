@@ -1,4 +1,27 @@
-<!DOCTYPE html>
+async function startCamera() {
+  if (running) return;
+
+  try {
+    // 1️⃣ PEDIR PERMISO DE CÁMARA (GESTO DE USUARIO)
+    await navigator.mediaDevices.getUserMedia({
+  video: { facingMode: { exact: "environment" } }
+});
+
+
+    // 2️⃣ CARGAR MODELO (solo una vez)
+    if (!modelLoaded) {
+      await tf.ready();
+      model = await tmImage.load(
+        MODEL_URL + "model.json",
+        MODEL_URL + "metadata.json"
+      );
+      modelLoaded = true;
+    }
+
+    // 3️⃣ INICIAR WEBCAM
+    webcam = new tmImage.Webcam(224, 224, false);
+    await webcam.setup();
+    await webcam.play();<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
@@ -46,10 +69,7 @@ async function startCamera() {
 
   try {
     // 1️⃣ PEDIR PERMISO DE CÁMARA (GESTO DE USUARIO)
-    await navigator.mediaDevices.getUserMedia({
-  video: { facingMode: { exact: "environment" } }
-});
-
+    await navigator.mediaDevices.getUserMedia({ video: true });
 
     // 2️⃣ CARGAR MODELO (solo una vez)
     if (!modelLoaded) {
@@ -118,8 +138,15 @@ function stopCamera() {
 
 
 
+    running = true;
+    window.requestAnimationFrame(loop);
 
-
-
-
-
+  } catch (err) {
+    console.error(err);
+    if (window.AppInventor) {
+      window.AppInventor.setWebViewString(
+        "ERROR: " + (err.message || "CAMARA_O_MODELO")
+      );
+    }
+  }
+}
