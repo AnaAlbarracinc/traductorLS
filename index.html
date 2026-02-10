@@ -46,7 +46,10 @@ async function startCamera() {
 
   try {
     // 1️⃣ PEDIR PERMISO DE CÁMARA (GESTO DE USUARIO)
-    await navigator.mediaDevices.getUserMedia({ video: true });
+    await navigator.mediaDevices.getUserMedia({
+  video: { facingMode: { exact: "environment" } }
+});
+
 
     // 2️⃣ CARGAR MODELO (solo una vez)
     if (!modelLoaded) {
@@ -111,6 +114,7 @@ function stopCamera() {
 
 </body>
 </html>
+
 
 
 
