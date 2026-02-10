@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>IA Oculta LSE</title>
+
+  <style>
+    /* Nada visible */
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 0;
+      height: 0;
+      overflow: hidden;
+      background: transparent;
+    }
+    video, canvas {
+      display: none;
+    }
+  </style>
+
+  <!-- TensorFlow.js -->
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest"></script>
+  <!-- Teachable Machine Image -->
+  <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest"></script>
+</head>
+
+<body>
+
+<script>
+  /************* CONFIGURACIÓN *************/
+  const URL_BASE = "https://teachablemachine.withgoogle.com/models/PBMe15z0B/";
+  const CONFIDENCE_THRESHOLD = 0.7;   // Ajusta si quieres
+  const SEND_INTERVAL_MS = 800;        // Evita spam de resultados
+
+  /************* VARIABLES *************/
+  let model, webcam;
+  let lastSent = "";
+  let lastSendTime = 0;
+
+  /************* INICIALIZACIÓN *************/
+  async function init() {
+    try {
+      model = await tmImage.load(
+        URL_BASE + "model.json",
+        URL_BASE + "metadata.json"
+      );
+
+      webcam = new tmImage.Webcam(224, 224, true);
+      await webcam.setup();   // pide permiso de cámara
+      await webcam.play();
+
+      loop();
+    } catch (err) {
+      sendToAppInventor("ERROR_CAMARA_O_MODELO");
+      console.error(err);
+    }
+  }
+
+  /************* BUCLE PRINCIPAL *************/
+  async function loop() {
+    webcam.update();
+    await predict();
+    requestAnimationFrame(loop);
+  }
+
+  /************* PREDICCIÓN *************/
+  async function predict() {
+    const predictions = await model.predict(webcam.canvas);
+
+    let best = predictions[0];
+    for (let i = 1; i < predictions.length; i++) {
+      if (predictions[i].probability > best.probability) {
+        best = predictions[i];
+      }
+    }
+
+    const now = Date.now();
+
+    if (
+      best.probability >= CONFIDENCE_THRESHOLD &&
+      best.className !== lastSent &&
+      now - lastSendTime > SEND_INTERVAL_MS
+    ) {
+      lastSent = best.className;
+      lastSendTime = now;
+      sendToAppInventor(best.className);
+    }
+  }
+
+  /************* COMUNICACIÓN CON APP INVENTOR *************/
+  function sendToAppInventor(text) {
+    if (window.AppInventor && window.AppInventor.setWebViewString) {
+      window.AppInventor.setWebViewString(text);
+    }
+  }
+
+  /************* ARRANQUE *************/
+  init();
+</script>
+
+</body>
+</html>
