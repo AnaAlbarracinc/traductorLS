@@ -3,7 +3,6 @@
 <head>
   <meta charset="UTF-8">
   <title>Traductor LSE IA</title>
-
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
   <style>
@@ -16,7 +15,6 @@
       color: white;
       font-family: Arial, sans-serif;
     }
-
     #startScreen {
       width: 100%;
       height: 100%;
@@ -26,76 +24,71 @@
       font-size: 22px;
       text-align: center;
     }
-
     video, canvas {
       display: none;
     }
   </style>
 
-  <!-- TensorFlow.js -->
-  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.20.0/dist/tf.min.js"></script>
-  <!-- Teachable Machine Image -->
+  <!-- ⚠️ VERSIONES ESTABLES PARA WEBVIEW -->
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.21.0/dist/tf.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@0.8/dist/teachablemachine-image.min.js"></script>
 </head>
 
 <body>
 
-<!-- Pantalla de inicio (gesto obligatorio) -->
 <div id="startScreen" onclick="startCamera()">
   👉 Toca aquí para iniciar la traducción
 </div>
 
 <script>
-  /************** CONFIGURACIÓN **************/
   const MODEL_URL = "https://teachablemachine.withgoogle.com/models/PBMe15z0B/";
   const CONFIDENCE_THRESHOLD = 0.7;
 
-  /************** VARIABLES **************/
   let model = null;
   let webcam = null;
   let started = false;
 
-  /************** FUNCIÓN EXPLÍCITA **************/
   async function startCamera() {
     if (started) return;
     started = true;
 
-    document.getElementById("startScreen").innerText = "Cargando modelo…";
+    const screen = document.getElementById("startScreen");
+    screen.innerText = "Cargando modelo…";
 
     try {
-      // Cargar modelo
+      // ⬇️ CLAVE: esperar a que tf esté listo
+      await tf.ready();
+
       model = await tmImage.load(
         MODEL_URL + "model.json",
         MODEL_URL + "metadata.json"
       );
 
-      // Activar cámara (AQUÍ Android pide permiso)
+      screen.innerText = "Activando cámara…";
+
       webcam = new tmImage.Webcam(224, 224, true);
-      await webcam.setup();   // permiso cámara
+      await webcam.setup();   // AQUÍ pide cámara
       await webcam.play();
 
-      // Ocultar completamente el HTML
+      // Ocultamos el HTML
       document.body.style.display = "none";
 
-      // Iniciar reconocimiento
       requestAnimationFrame(loop);
 
     } catch (err) {
+      console.error(err);
       if (window.AppInventor) {
         window.AppInventor.setWebViewString("ERROR_CAMARA_O_MODELO");
       }
-      console.error(err);
     }
   }
 
-  /************** BUCLE PRINCIPAL **************/
   async function loop() {
     webcam.update();
     await predict();
     requestAnimationFrame(loop);
   }
 
-  /************** PREDICCIÓN **************/
   async function predict() {
     const predictions = await model.predict(webcam.canvas);
 
