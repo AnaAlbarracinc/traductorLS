@@ -60,6 +60,12 @@ async function startCamera() {
     }
 
     // Cámara trasera
+    if (webcam) {
+      webcam.stop();
+      document.getElementById("camera-container").innerHTML = "";
+      webcam = null;
+    }
+
     webcam = new tmImage.Webcam(224, 224, false);
     await webcam.setup({ facingMode: "environment" });
     await webcam.play();
@@ -102,9 +108,20 @@ async function predict() {
 
 function stopCamera() {
   running = false;
-  if (webcam) webcam.stop();
+
+  if (webcam) {
+    webcam.stop();
+
+    // eliminar canvas de pantalla
+    const container = document.getElementById("camera-container");
+    container.innerHTML = "";
+
+    webcam = null;
+  }
 }
+
 </script>
 
 </body>
 </html>
+
