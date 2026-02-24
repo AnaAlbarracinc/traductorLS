@@ -37,7 +37,7 @@
 <div id="camera-container"></div>
 
 <script>
-const MODEL_URL = "https://teachablemachine.withgoogle.com/models/PBMe15zOB/";
+const MODEL_URL = "https://anaalbarracinc.github.io/traductorLS/model/";
 const CONFIDENCE_THRESHOLD = 0.6;
 
 let model = null;
@@ -45,7 +45,7 @@ let webcam = null;
 let running = false;
 let modelLoaded = false;
 
-/* 🔥 PRECARGA DEL MODELO AL ABRIR */
+/*  PRECARGA DEL MODELO */
 window.addEventListener("load", async () => {
   try {
     await tf.ready();
@@ -63,7 +63,7 @@ window.addEventListener("load", async () => {
   }
 });
 
-/* 🔥 INICIAR CÁMARA (YA SIN CARGAR MODELO) */
+/*  INICIAR CÁMARA */
 async function startCamera() {
   if (running || !modelLoaded) return;
 
@@ -92,19 +92,26 @@ async function startCamera() {
   }
 }
 
-/* 🔥 LOOP DE PREDICCIÓN */
+/*  LOOP */
 async function loop() {
   if (!running) return;
 
   webcam.update();
   await predict();
 
-  window.requestAnimationFrame(loop);
+  if (running) {
+    window.requestAnimationFrame(loop);
+  }
 }
 
-/* 🔥 PREDICCIÓN */
+/*  PREDICCIÓN SEGURA */
 async function predict() {
+
+  if (!running) return;
+
   const predictions = await model.predict(webcam.canvas);
+
+  if (!running) return;
 
   let best = predictions[0];
 
@@ -114,14 +121,17 @@ async function predict() {
     }
   }
 
-  if (best.probability >= CONFIDENCE_THRESHOLD) {
+  if (best.probability >= CONFIDENCE_THRESHOLD && running) {
     window.AppInventor?.setWebViewString(best.className);
   }
 }
 
-/* 🔥 PARAR CÁMARA */
+/*  PARAR CÁMARA */
 function stopCamera() {
   running = false;
+
+  // Limpia texto en App Inventor
+  window.AppInventor?.setWebViewString("");
 
   if (webcam) {
     webcam.stop();
@@ -134,4 +144,3 @@ function stopCamera() {
 
 </body>
 </html>
-
