@@ -45,21 +45,30 @@ let webcam = null;
 let running = false;
 let modelLoaded = false;
 
+/* 🔥 PRECARGA DEL MODELO AL ABRIR */
+window.addEventListener("load", async () => {
+  try {
+    await tf.ready();
+    model = await tmImage.load(
+      MODEL_URL + "model.json",
+      MODEL_URL + "metadata.json"
+    );
+    modelLoaded = true;
+
+    window.AppInventor?.setWebViewString("MODEL_READY");
+
+  } catch (err) {
+    console.error(err);
+    window.AppInventor?.setWebViewString("ERROR: MODELO");
+  }
+});
+
+/* 🔥 INICIAR CÁMARA (YA SIN CARGAR MODELO) */
 async function startCamera() {
-  if (running) return;
+  if (running || !modelLoaded) return;
 
   try {
 
-    if (!modelLoaded) {
-      await tf.ready();
-      model = await tmImage.load(
-        MODEL_URL + "model.json",
-        MODEL_URL + "metadata.json"
-      );
-      modelLoaded = true;
-    }
-
-    // Cámara trasera
     if (webcam) {
       webcam.stop();
       document.getElementById("camera-container").innerHTML = "";
@@ -70,7 +79,6 @@ async function startCamera() {
     await webcam.setup({ facingMode: "environment" });
     await webcam.play();
 
-    // Mostrar CANVAS (más estable que video)
     document.getElementById("camera-container").appendChild(webcam.canvas);
 
     running = true;
@@ -84,17 +92,22 @@ async function startCamera() {
   }
 }
 
+/* 🔥 LOOP DE PREDICCIÓN */
 async function loop() {
   if (!running) return;
+
   webcam.update();
   await predict();
+
   window.requestAnimationFrame(loop);
 }
 
+/* 🔥 PREDICCIÓN */
 async function predict() {
   const predictions = await model.predict(webcam.canvas);
 
   let best = predictions[0];
+
   for (let i = 1; i < predictions.length; i++) {
     if (predictions[i].probability > best.probability) {
       best = predictions[i];
@@ -106,16 +119,13 @@ async function predict() {
   }
 }
 
+/* 🔥 PARAR CÁMARA */
 function stopCamera() {
   running = false;
 
   if (webcam) {
     webcam.stop();
-
-    // eliminar canvas de pantalla
-    const container = document.getElementById("camera-container");
-    container.innerHTML = "";
-
+    document.getElementById("camera-container").innerHTML = "";
     webcam = null;
   }
 }
@@ -124,4 +134,3 @@ function stopCamera() {
 
 </body>
 </html>
-
